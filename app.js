@@ -104,19 +104,12 @@ try { (function () {
     saveState(state);
   }
 
-  /* ---------------- 朗读（浏览器语音，无需音频文件） ---------------- */
-  var _zhVoice = null;
-  function pickZhVoice() {
-    if (!("speechSynthesis" in window)) return null;
-    var vs = window.speechSynthesis.getVoices() || [];
-    var zh = vs.filter(function (v) { return /zh|chinese/i.test(v.lang); });
-    if (!zh.length) return null;
-    var m = zh.filter(function (v) { return /yunyang|male|男|晓|云|yang/i.test(v.name); });
-    return m[0] || zh[0];
-  }
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.onvoiceschanged = function () { _zhVoice = pickZhVoice(); };
-  }
+  /* ---------------- 朗读（预生成 mp3，不依赖浏览器 TTS） ----------------
+   * 国产手机浏览器与微信 WebView 基本没有中文 speechSynthesis，改用 <audio>；
+   * play() 必须留在点击同步栈内（iOS / 微信手势栈），SW 不拦截 .mp3（坑1）。 */
+  var AUDIO_V = 1;                 // 音频重生成后 +1 破缓存
+  var _audio = null, _audioBtn = null;
+
   function showToast(msg, ms) {
     try {
       var t = document.getElementById("__toast");
@@ -130,28 +123,39 @@ try { (function () {
       clearTimeout(t._t); t._t = setTimeout(function () { t.style.opacity = "0"; }, ms || 2600);
     } catch (e) {}
   }
-  function stopSpeak() {
-    if ("speechSynthesis" in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+  function getAudioEl() {
+    if (_audio) return _audio;
+    _audio = document.createElement("audio");
+    _audio.setAttribute("playsinline", "");
+    _audio.setAttribute("webkit-playsinline", "");
+    _audio.setAttribute("x5-playsinline", "");   // 微信 X5
+    _audio.preload = "none";
+    _audio.style.display = "none";
+    document.body.appendChild(_audio);
+    return _audio;
   }
-  function speak(text, btn) {
+  function stopSpeak() {
+    try { if (_audio) { _audio.pause(); _audio.currentTime = 0; } } catch (e) {}
+    if (_audioBtn) { _audioBtn.textContent = "🔊 听这句"; _audioBtn = null; }
+  }
+  function speak(e, btn) {
     stopSpeak();
-    if (!("speechSynthesis" in window)) {
-      showToast("当前浏览器不支持朗读，可换用系统浏览器打开");
-      return;
-    }
-    try {
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = "zh-CN"; u.rate = 0.9; u.pitch = 1.0;
-      var v = _zhVoice || pickZhVoice();
-      if (v) u.voice = v;
-      if (btn) btn.textContent = "♪ 朗读中…";
-      var restore = function () { if (btn) btn.textContent = "🔊 听这句"; };
-      u.onend = restore;
-      u.onerror = function () { restore(); showToast("朗读未成功，建议在浏览器中打开"); };
-      window.speechSynthesis.speak(u);
-    } catch (e) {
-      showToast("朗读未成功，建议在浏览器中打开");
-    }
+    var au = getAudioEl();
+    au.onended = null; au.onerror = null;
+    _audioBtn = btn || null;
+    au.src = "audio/" + e.id + ".mp3?v=" + AUDIO_V;
+    if (btn) btn.textContent = "♪ 朗读中…";
+    var restore = function () {
+      if (_audioBtn === btn) { if (btn) btn.textContent = "🔊 听这句"; _audioBtn = null; }
+    };
+    au.onended = restore;
+    au.onerror = function () { restore(); showToast("音频未加载，请检查网络后重试"); };
+    // 关键：play() 在点击同步栈内直接调用，不能放进 oncanplay 等异步回调
+    var pr = au.play();
+    if (pr && pr.catch) pr.catch(function () {
+      restore();
+      showToast("朗读未成功，建议点右上角 ⋯ → 在浏览器打开");
+    });
   }
 
   /* ---------------- 渲染框架 ---------------- */
@@ -232,7 +236,7 @@ try { (function () {
     view.querySelectorAll(".q-speak").forEach(function (b) {
       b.onclick = function () {
         var e = BY_ID[parseInt(b.dataset.id, 10)];
-        if (e) speak(e.term, b);
+        if (e) speak(e, b);
       };
     });
     view.querySelectorAll(".q-remove").forEach(function (b) {

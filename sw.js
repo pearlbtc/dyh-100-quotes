@@ -1,5 +1,5 @@
 /* 董宇辉最经典语录100句 · 阅读小工具 — Service Worker 离线缓存 */
-const CACHE = "dyh100-v2";  // 每次发布 +1，确保用户立刻拿到新缓存
+const CACHE = "dyh100-v3";  // 每次发布 +1，确保用户立刻拿到新缓存
 const CORE = [
   "./",
   "index.html",
@@ -42,6 +42,9 @@ self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET") return;
   var url = new URL(req.url);
+
+  // 音频彻底不进 SW：流式播放需要 HTTP Range，拦截后 Chromium 会中止请求（gotchas 坑1）
+  if (url.pathname.endsWith(".mp3")) return;
 
   // JS/CSS/HTML：网络优先（确保用户永远拿到最新代码）；网络失败才回退缓存
   var isCode = url.pathname.endsWith(".js") || url.pathname.endsWith(".css") ||
