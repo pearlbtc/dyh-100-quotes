@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#a83c32" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="语录100句" />
+<title>董宇辉最经典语录100句 · 阅读小工具</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="wx-tip" style="display:none;background:#fff4d6;color:#7a5518;font-size:12px;line-height:1.6;text-align:center;padding:8px 14px;border-bottom:1px solid #e8d6a8">
+    微信内朗读可能无声，建议点右上角 ⋯ →「在浏览器打开」
+  </div>
+  <script>
+    if (/MicroMessenger/i.test(navigator.userAgent)) {
+      document.getElementById("wx-tip").style.display = "block";
+    }
+  </script>
+
+  <header class="app-header">
+    <div class="brand">董宇辉最经典语录 100 句</div>
+    <div class="sub">一百句 · 九篇 · 慢慢读</div>
+  </header>
+
+  <main id="view" class="view"><!-- 动态渲染 --></main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-tab="lib"><span class="ic">📖</span><span>语录</span></button>
+    <button class="tab" data-tab="fav"><span class="ic">⭐</span><span>收藏</span></button>
+    <button class="tab" data-tab="about"><span class="ic">🍃</span><span>关于</span></button>
+  </nav>
+
+  <!-- 数据先加载，再加载逻辑；file:// 协议下不能加 crossorigin，否则同目录脚本会被 CORS 拒绝。?v=N 每次发布+1，绕过 GitHub Pages 的 max-age=600 HTTP 缓存。 -->
+  <script src="data.js?v=2"></script>
+  <script src="app.js?v=2"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          if (reg.waiting) { reg.waiting.postMessage("skipWaiting"); }
+          reg.addEventListener("updatefound", function () {
+            var nw = reg.installing;
+            if (nw) nw.addEventListener("statechange", function () {
+              if (nw.state === "installed" && navigator.serviceWorker.controller) {
+                nw.postMessage("skipWaiting");
+              }
+            });
+          });
+        }).catch(function (e) { console.warn("SW 注册失败:", e); });
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          window.location.reload();
+        });
+      });
+    }
+  </script>
+</body>
+</html>
